@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, Component } from "react";
 
 /* ============================================================
    PARAGON AI · v3 "Velvet+"
@@ -608,7 +608,7 @@ function ProcessingView({ preview }) {
 }
 
 /* ============================================================ APLIKACJA */
-export default function ParagonAI() {
+function ParagonAIInner() {
   const [receipts, setReceipts] = useState([]);
   const [plan, setPlan] = useState(null);           // {tier, trialEndsAt?, members?[]}
   const [profile, setProfile] = useState({ name: "", email: "" });
@@ -1294,10 +1294,11 @@ export default function ParagonAI() {
 
   /* ---------- PROFIL + USTAWIENIA ---------- */
   const Profil = () => {
-    const planMeta = { free: { ic: "spark", c: "#9FB3A9", grad: "linear-gradient(140deg,#1A2B23,#0E1A14)" },
+    const planMetaMap = { free: { ic: "spark", c: "#9FB3A9", grad: "linear-gradient(140deg,#1A2B23,#0E1A14)" },
       starter: { ic: "spark", c: "#A8B8C2", grad: "linear-gradient(140deg,#1B2E33,#0E1A1D)" },
       pro: { ic: "crown", c: T.mint, grad: "linear-gradient(140deg,#15493A 0%,#0E3528 50%,#0A2A1F 100%)" },
-      family: { ic: "crown", c: T.gold, grad: "linear-gradient(140deg,#3A3320 0%,#241E0E 55%,#1A1608 100%)" } }[effTier];
+      family: { ic: "crown", c: T.gold, grad: "linear-gradient(140deg,#3A3320 0%,#241E0E 55%,#1A1608 100%)" } };
+    const planMeta = planMetaMap[effTier] || planMetaMap.free;
     const planName = PLANS.find((p) => p.id === effTier)?.name || "Free";
     // rangi "oszczędzacza" wg liczby paragonów — lekki grywalizacyjny detal
     const tiersR = [[0, "Nowicjusz"], [10, "Łowca paragonów"], [30, "Strateg wydatków"], [75, "Mistrz budżetu"], [150, "Legenda oszczędzania"]];
@@ -2111,7 +2112,7 @@ export default function ParagonAI() {
     return (
       <div style={{ flex: 1, display: "flex", flexDirection: "column", position: "relative", minHeight: 0 }}>
         <Header title={draft.manual ? "Nowy paragon" : "Sprawdź wyniki"} onBack={() => { setView({ name: "tabs" }); setDraft(null); }} />
-        <div style={{ flex: 1, overflowY: "auto", padding: "10px 16px 130px" }}>
+        <div className="pa-scroll" style={{ flex: 1, padding: "10px 16px 130px" }}>
           <div className="pa-rise" style={{ ...card, padding: 14, marginBottom: 12 }}>
             <div style={{ display: "flex", gap: 10 }}>
               <div style={{ flex: 1 }}>
@@ -2406,5 +2407,49 @@ function Icon({ name, size = 19, color = "currentColor", sw = 1.8 }) {
     <svg width={size} height={size} viewBox="0 0 24 24" fill="none" stroke={color} strokeWidth={sw} strokeLinecap="round" strokeLinejoin="round">
       {ICONS[name] || null}
     </svg>
+  );
+}
+
+/* ---------- Error Boundary: łapie crash i pokazuje komunikat zamiast czarnego ekranu ---------- */
+class ErrorBoundary extends Component {
+  constructor(props) { super(props); this.state = { hasError: false }; }
+  static getDerivedStateFromError() { return { hasError: true }; }
+  componentDidCatch(error, info) { console.error("Paragon AI error:", error, info); }
+  handleReset = () => {
+    try { localStorage.removeItem("paragon-state"); } catch (e) { /* nic */ }
+    this.setState({ hasError: false });
+    if (typeof window !== "undefined") window.location.reload();
+  };
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ minHeight: "100vh", background: "#050B08", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, fontFamily: "Inter, system-ui, sans-serif" }}>
+          <div style={{ maxWidth: 340, textAlign: "center" }}>
+            <div style={{ fontSize: 42, marginBottom: 14 }}>🛠️</div>
+            <div style={{ fontSize: 18, fontWeight: 700, color: "#EAF2ED", marginBottom: 8 }}>Coś poszło nie tak</div>
+            <div style={{ fontSize: 13.5, color: "#9DB0A6", lineHeight: 1.6, marginBottom: 22 }}>
+              Aplikacja napotkała nieoczekiwany błąd. Możesz odświeżyć — Twoje dane zwykle pozostają zapisane. Jeśli błąd wraca, użyj przycisku poniżej, aby wyczyścić pamięć aplikacji.
+            </div>
+            <button onClick={() => window.location.reload()}
+              style={{ width: "100%", padding: "13px 0", borderRadius: 14, border: "none", background: "linear-gradient(135deg,#2DD4A0,#1BA47D)", color: "#06251A", fontSize: 14, fontWeight: 700, cursor: "pointer", marginBottom: 10 }}>
+              Odśwież aplikację
+            </button>
+            <button onClick={this.handleReset}
+              style={{ width: "100%", padding: "11px 0", borderRadius: 14, border: "1px solid rgba(255,255,255,.12)", background: "none", color: "#9DB0A6", fontSize: 12.5, fontWeight: 600, cursor: "pointer" }}>
+              Wyczyść dane i zacznij od nowa
+            </button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export default function ParagonAI() {
+  return (
+    <ErrorBoundary>
+      <ParagonAIInner />
+    </ErrorBoundary>
   );
 }
